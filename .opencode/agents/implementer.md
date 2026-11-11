@@ -16,12 +16,15 @@ permissions:
     effect: allow
   - action: shell
     resource: "*"
-    effect: ask
+    effect: deny
   - action: skill
     resource: "*"
     effect: allow
   - action: edit
     resource: "*"
+    effect: deny
+  - action: edit
+    resource: "src/*"
     effect: allow
   - action: edit
     resource: ".harness_tmp/**"
@@ -30,7 +33,25 @@ permissions:
     resource: "tests/**"
     effect: deny
   - action: edit
-    resource: "**/*test*"
+    resource: "*/tests/*"
+    effect: deny
+  - action: edit
+    resource: "*.test.*"
+    effect: deny
+  - action: edit
+    resource: "*.spec.*"
+    effect: deny
+  - action: edit
+    resource: "__tests__/*"
+    effect: deny
+  - action: edit
+    resource: "*/__tests__/*"
+    effect: deny
+  - action: edit
+    resource: ".harness/*"
+    effect: deny
+  - action: edit
+    resource: ".opencode/*"
     effect: deny
   - action: skill
     resource: "*"

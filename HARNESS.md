@@ -74,20 +74,21 @@ autonomía: el trabajo vuelve al Diseñador.
 ## Skills
 
 - `next-slice-orchestrator`: requerimiento, exploración, diseño, spec y tareas.
+- `impact-analysis`: dependencias y cobertura antes de redactar el contrato.
 - `solve-slice-tdd`: implementación del contrato.
 - `close-slice`: verificación, memoria y cierre.
 
 ## Flujo de un slice
 
 1. Recibir el requerimiento.
-2. Consultar Engram e inspeccionar el código relevante.
+2. Consultar Engram e inspeccionar el código relevante con `impact-analysis`.
 3. Confirmar alcance y arquitectura si se ven afectados.
 4. Crear `current_slice_spec.md` y los tests reales.
 5. Verificar RED.
 6. Implementar sin modificar los tests ni el contrato.
 7. Verificar GREEN, lint y formato según el SDD.
 8. Realizar la aceptación manual.
-9. Guardar en Engram un resumen de hasta tres líneas.
+9. Actualizar el estado del slice y guardar en Engram los aprendizajes duraderos.
 10. Limpiar únicamente los temporales del slice cerrado.
 
 ### Ejecución y verificación
@@ -95,6 +96,12 @@ autonomía: el trabajo vuelve al Diseñador.
 - El Pre-check registra el estado base y separa los fallos preexistentes.
 - El Verificador confirma RED por ausencia del comportamiento, no por un fallo
   ajeno al slice.
+- El Orquestador ejecuta `.harness/verify-slice.ps1 -Phase Baseline` antes del
+  diseño y `-Phase Red` después de confirmar el fallo esperado. El Verificador
+  ejecuta `-Phase Green` después de los comandos de comprobación para validar
+  los hashes de tests y contrato y las rutas autorizadas.
+- RED puede ser una aserción fallida o la ausencia del módulo o símbolo previsto.
+  Los fallos del entorno vuelven al rol responsable y quedan fuera del contador.
 - El Implementador trabaja con el contrato y corrige solo errores derivados de
   su cambio.
 - El Verificador devuelve el comando y el error relevante en cada fallo.
@@ -102,17 +109,29 @@ autonomía: el trabajo vuelve al Diseñador.
 - Si falta una decisión o el test no expresa el comportamiento esperado, el
   trabajo vuelve al Diseñador.
 - Si se requiere cambiar alcance o arquitectura, se consulta al usuario.
-- Tras agotar los 3 intentos, se escala al usuario con el estado y la evidencia.
+- Registra los fallos de implementación con `-Phase Failure`, `-FailedCommand`,
+  `-ExitCode` y `-Diagnostic`. Al tercer intento conserva los archivos y la
+  evidencia, actualiza `MEMORY.md` y divide el slice si ayuda a resolver el bloqueo.
+- Usa `-Checkpoint` al registrar RED en un worktree dedicado con estado base
+  limpio. Si el slice depende de cambios locales del usuario, conserva el
+  estado en el proyecto actual. La recuperación prescinde de `git reset --hard`.
 - Un fallo preexistente se registra como tal y solo bloquea si afecta al slice.
 
 ## Contrato del slice
 
-Debe incluir:
+CodeGraph es opcional por proyecto. El Explorador puede usarlo para localizar
+llamadores, dependencias y pruebas relacionadas. Revisa un salto desde los
+símbolos candidatos y amplía a dos si aparece otro módulo o punto de entrada.
+Si el índice no está disponible o su cobertura es insuficiente, completa la
+exploración con búsqueda y lectura del código. El informe distingue las
+relaciones comprobadas de las pendientes y sirve de entrada al Diseñador.
+
+Usa `.harness/slice-template.md`. Debe incluir:
 
 - Objetivo observable.
 - Alcance incluido y excluido.
 - Restricciones aplicables.
-- Archivos previstos.
+- Impacto observado, rutas autorizadas con operaciones y tests protegidos.
 - Contratos y tipos.
 - Ubicación de los tests.
 - Pre-check del estado base.
@@ -160,9 +179,11 @@ convenciones y restricciones duraderas usando el formato `What`, `Why`,
 `Where` y `Learned`. Usar `topic_key` solo para temas evolutivos y con claves
 estables de dos niveles, como `architecture/auth-model`.
 
-Al cerrar un slice, actualizar `MEMORY.md` con el estado y próximos pasos,
-guardar el aprendizaje duradero en Engram y crear el resumen estructurado de
-sesión mediante `mem_session_summary`. `MEMORY.md` debe mantenerse breve,
+Al cerrar un slice, actualizar `MEMORY.md` con el estado y próximos pasos
+y guardar el aprendizaje duradero en Engram. Consultar por módulo cuando se
+conozca y confirmar la identidad canónica también en worktrees.
+Reservar `mem_session_summary` para el protocolo del plugin al terminar la
+sesión o tras compactación. `MEMORY.md` debe mantenerse breve,
 aproximadamente en 50 líneas o menos.
 
 ### Obsolescencia y privacidad
@@ -204,7 +225,7 @@ Un slice bloqueado conserva sus artefactos para poder retomarse.
 
 1. El Verificador confirma tests, lint, formato y aceptación manual.
 2. El Orquestador registra en `MEMORY.md` el estado actual y los próximos pasos.
-3. Se guarda en Engram un resumen del slice de hasta tres líneas.
+3. Se conserva la evidencia mínima de las comprobaciones del slice.
 4. Las decisiones duraderas, bugs o descubrimientos se guardan por separado
    siguiendo el protocolo oficial de Engram.
 5. La deuda técnica se registra en el SDD o registro del proyecto, con motivo

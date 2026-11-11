@@ -4,7 +4,10 @@ param(
     [string]$ProjectPath = (Get-Location).Path,
 
     [Parameter()]
-    [switch]$Force
+    [switch]$Force,
+
+    [Parameter()]
+    [switch]$WithCodeGraph
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,12 +20,30 @@ $targetRoot = if ($resolvedTarget) {
     [System.IO.Path]::GetFullPath($ProjectPath)
 }
 
-if (-not $targetRoot) {
-    New-Item -ItemType Directory -Force -Path $targetRoot | Out-Null
-}
-
 if ($sourceRoot.TrimEnd('\') -ieq $targetRoot.TrimEnd('\')) {
     throw 'El proyecto destino no puede ser el repositorio fuente del arnés.'
+}
+
+$opencodeConfigPath = Join-Path $targetRoot '.opencode\opencode.jsonc'
+$jsonConfigPath = Join-Path $targetRoot '.opencode\opencode.json'
+if ((Test-Path -LiteralPath $jsonConfigPath -PathType Leaf) -and
+    -not (Test-Path -LiteralPath $opencodeConfigPath)) {
+    $opencodeConfigPath = $jsonConfigPath
+}
+
+if ($WithCodeGraph) {
+    $nodePath = (Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    $codegraphPath = (Get-Command codegraph -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    $helperPath = Join-Path $sourceRoot 'tools\codegraph\configure.cjs'
+    $otherConfigs = @(
+        (Join-Path $targetRoot 'opencode.jsonc')
+        (Join-Path $targetRoot 'opencode.json')
+        $jsonConfigPath
+    ) | Where-Object { $_ -ne $opencodeConfigPath }
+    & $nodePath $helperPath $opencodeConfigPath @otherConfigs --check
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Falló la comprobación de CodeGraph. Comprueba el diagnóstico y ejecuta npm ci --prefix tools/codegraph si falta jsonc-parser.'
+    }
 }
 
 function Copy-HarnessFile {
@@ -77,11 +98,14 @@ function Copy-HarnessDirectory {
 Copy-HarnessFile 'HARNESS.md'
 Copy-HarnessFile '.harness\AGENTS.md'
 Copy-HarnessFile '.harness\CONSTITUTION.md'
+Copy-HarnessFile '.harness\slice-template.md'
+Copy-HarnessFile '.harness\verify-slice.ps1'
 Copy-HarnessDirectory '.opencode\agents'
+Copy-HarnessDirectory '.opencode\skills'
 Copy-HarnessDirectory '.harness\skills'
 
 $memoryPath = Join-Path $targetRoot '.harness\MEMORY.md'
-if ((Test-Path -LiteralPath $memoryPath) -and -not $Force) {
+if (Test-Path -LiteralPath $memoryPath) {
     Write-Warning 'Se conserva el archivo existente: .harness/MEMORY.md'
 } else {
     @'
@@ -115,84 +139,15 @@ también en Engram.
 
 $slicePath = Join-Path $targetRoot '.harness_tmp\current_slice_spec.md'
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $slicePath) | Out-Null
-if ((Test-Path -LiteralPath $slicePath) -and -not $Force) {
+if (Test-Path -LiteralPath $slicePath) {
     Write-Warning 'Se conserva el archivo existente: .harness_tmp/current_slice_spec.md'
 } else {
-    @'
-# Slice: [ID] — [Nombre]
-
-## 1. Objetivo observable
-
-Al terminar este slice, el usuario podrá: [resultado verificable y centrado en el comportamiento].
-
-## 2. Alcance
-
-Incluye:
-- [comportamiento incluido]
-
-No incluye:
-- [comportamiento explícitamente excluido]
-
-## 3. Restricciones aplicables
-
-- Constitución: [reglas globales relevantes]
-- SDD: [decisiones y comandos relevantes]
-- Calidad: [restricciones específicas del slice]
-
-## 4. Archivos
-
-Crear:
-- `[ruta]` — [responsabilidad]
-
-Modificar:
-- `[ruta]` — [cambio previsto y justificación]
-
-Tests reales:
-- `[ruta]` — [lógica específica que verifica]
-
-## 5. Contrato
-
-- Entrada: [tipo, formato o parámetros]
-- Salida: [tipo, formato o resultado exitoso]
-- Errores: [casos relevantes]
-- Interfaces públicas: [firmas, API o tipos; indicar "ninguna" si aplica]
-
-## 6. Tareas
-
-- [ ] [infraestructura o tests]
-- [ ] [implementación de lógica]
-- [ ] Ejecutar lint y formato
-
-## 7. Verificación
-
-- Pre-check: `[comando o "no definido"]`
-- RED: `[comando del test nuevo]`
-- GREEN: `[comando del test nuevo]`
-- Lint/formato: `[comando o "no definido"]`
-
-## 8. Aceptación manual
-
-- [ ] [paso observable]
-- [ ] [resultado esperado exacto]
-
-## 9. Bloqueos y dudas
-
-- [Ninguno / duda que requiere escalado]
-
-## Estado del Slice
-
-- Diseño: pendiente
-- RED: pendiente
-- Implementación: pendiente
-- GREEN: pendiente
-- Aceptación: pendiente
-'@ | Set-Content -LiteralPath $slicePath -Encoding utf8
+    Copy-Item -LiteralPath (Join-Path $targetRoot '.harness\slice-template.md') -Destination $slicePath
 }
 
-$opencodeConfigPath = Join-Path $targetRoot '.opencode\opencode.jsonc'
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $opencodeConfigPath) | Out-Null
-if ((Test-Path -LiteralPath $opencodeConfigPath) -and -not $Force) {
-    Write-Warning 'Se conserva la configuración existente: .opencode/opencode.jsonc'
+if (Test-Path -LiteralPath $opencodeConfigPath) {
+    Write-Warning "Se conserva la configuración existente: $opencodeConfigPath"
 } else {
     @'
 {
@@ -225,8 +180,18 @@ if ((Test-Path -LiteralPath $opencodeConfigPath) -and -not $Force) {
 '@ | Set-Content -LiteralPath $opencodeConfigPath -Encoding utf8
 }
 
+if ($WithCodeGraph) {
+    & $nodePath $helperPath $opencodeConfigPath @otherConfigs
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Falló la configuración del servidor CodeGraph.'
+    }
+}
+
 $gitignorePath = Join-Path $targetRoot '.gitignore'
 $requiredIgnores = @('.engram/', '.harness_tmp/')
+if ($WithCodeGraph) {
+    $requiredIgnores += '.codegraph/'
+}
 $existingIgnores = @()
 if (Test-Path -LiteralPath $gitignorePath) {
     $existingIgnores = @(Get-Content -LiteralPath $gitignorePath)
@@ -234,6 +199,42 @@ if (Test-Path -LiteralPath $gitignorePath) {
 $missingIgnores = @($requiredIgnores | Where-Object { $existingIgnores -notcontains $_ })
 if ($missingIgnores.Count -gt 0) {
     Add-Content -LiteralPath $gitignorePath -Value $missingIgnores
+}
+
+if ($WithCodeGraph) {
+    Push-Location -LiteralPath $targetRoot
+    try {
+        $statusJson = & $codegraphPath status --json
+        $statusExit = $LASTEXITCODE
+        $status = if ($statusJson) { ($statusJson -join "`n") | ConvertFrom-Json }
+        if ($status.rebuildInProgress -or $status.index.rebuildInProgress) {
+            throw 'CodeGraph está reconstruyendo el índice. Espera a que termine y repite la instalación.'
+        }
+
+        if ($status.initialized -eq $false -or
+            -not (Test-Path -LiteralPath '.codegraph' -PathType Container)) {
+            & $codegraphPath init --yes
+            if ($LASTEXITCODE -ne 0) {
+                throw 'Falló codegraph init. Repite la instalación para comprobar y recuperar el índice.'
+            }
+        } elseif ($statusExit -ne 0 -or $status.index.state -in @('indexing', 'partial', 'failed')) {
+            & $codegraphPath index --force
+            if ($LASTEXITCODE -ne 0) {
+                throw 'Falló la reconstrucción de CodeGraph. Consulta el diagnóstico antes de reintentar.'
+            }
+        }
+
+        $statusJson = & $codegraphPath status --json
+        if ($LASTEXITCODE -ne 0) {
+            throw 'CodeGraph no pudo comprobar el índice.'
+        }
+        $status = ($statusJson -join "`n") | ConvertFrom-Json
+        if (-not $status.initialized -or $status.index.state -in @('indexing', 'partial', 'failed')) {
+            throw 'El índice de CodeGraph sigue incompleto.'
+        }
+    } finally {
+        Pop-Location
+    }
 }
 
 Write-Output "Harness instalado en: $targetRoot"

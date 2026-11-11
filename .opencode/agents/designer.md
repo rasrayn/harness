@@ -16,7 +16,7 @@ permissions:
     effect: allow
   - action: shell
     resource: "*"
-    effect: ask
+    effect: deny
   - action: skill
     resource: "*"
     effect: allow
@@ -27,16 +27,25 @@ permissions:
     resource: "*"
     effect: deny
   - action: edit
-    resource: ".harness_tmp/**"
+    resource: ".harness_tmp/current_slice_spec.md"
     effect: allow
   - action: edit
     resource: "tests/**"
     effect: allow
   - action: edit
-    resource: "**/*test*"
+    resource: "*/tests/*"
     effect: allow
   - action: edit
-    resource: "**/*spec*"
+    resource: "*.test.*"
+    effect: allow
+  - action: edit
+    resource: "*.spec.*"
+    effect: allow
+  - action: edit
+    resource: "__tests__/*"
+    effect: allow
+  - action: edit
+    resource: "*/__tests__/*"
     effect: allow
   - action: skill
     resource: "*"

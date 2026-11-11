@@ -23,6 +23,9 @@ permissions:
   - action: "engram_*"
     resource: "*"
     effect: allow
+  - action: codegraph_codegraph_explore
+    resource: "*"
+    effect: allow
   - action: edit
     resource: "*"
     effect: deny
@@ -31,7 +34,8 @@ permissions:
     effect: allow
 ---
 
-Consulta Engram y revisa únicamente el código relacionado con el requerimiento.
+Consulta Engram y usa la skill `impact-analysis` para revisar el código
+relacionado con el requerimiento.
 Entrega un informe breve de hechos, convenciones, impacto y riesgos. Aplica
 `HARNESS.md` y `CONSTITUTION.md`; no implementes ni decidas arquitectura por tu
 cuenta.

@@ -27,7 +27,7 @@ arquitectura, se consulta al usuario.
 
 Al iniciar, el Orquestador lee `MEMORY.md`, confirma el proyecto con
 `mem_current_project` y consulta Engram progresivamente. Al cerrar, actualiza
-`MEMORY.md`, guarda los aprendizajes duraderos en Engram y crea el resumen de
+`MEMORY.md` y guarda los aprendizajes duraderos en Engram. Sigue el protocolo del plugin para el resumen de
 sesión oficial. `MEMORY.md` debe mantenerse breve.
 
 ## Finalización

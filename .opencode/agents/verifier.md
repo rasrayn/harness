@@ -30,4 +30,8 @@ permissions:
 
 Ejecuta los comandos definidos en el SDD y en el contrato del slice. Comprueba
 RED o GREEN según corresponda, además de lint, formato y aceptación manual.
-Devuelve comandos ejecutados, resultado y errores relevantes.
+Devuelve comandos ejecutados, códigos de salida y diagnósticos relevantes.
+RED es válido cuando falla una aserción por el comportamiento ausente o
+la compilación señala el módulo o símbolo que el contrato exige crear.
+Clasifica los fallos de entorno por separado. Tras las comprobaciones GREEN,
+ejecuta `.harness/verify-slice.ps1 -Phase Green` antes de la aceptación manual.

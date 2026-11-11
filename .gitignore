@@ -1,3 +1,4 @@
 ﻿.engram/
 .harness_tmp/
 .opencode/opencode.jsonc
+/tools/codegraph/node_modules/
